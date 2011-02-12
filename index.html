@@ -1,0 +1,230 @@
+<html> 
+<head>
+<style>
+
+.cont {
+   float: left;
+}
+
+.clear {
+   clear: both;
+}
+ 
+#hello_world {
+   width: 400px;
+   height: 240px;
+}
+
+#count_input {
+   width: 400px;
+   height: 280px;
+}
+
+#output {
+   width: 400px;
+   height: 100px;
+}
+
+</style>
+<script>
+
+window.onload = function (){
+
+var get = function (i) {
+        return document.getElementById(i);
+};
+
+var filter = function (ls, fn) {
+   var i, ret = [];
+   for (i = 0; i < ls.length; i += 1) {
+      if (fn(ls[i])) {
+         ret.push(ls[i]);
+      }
+   }
+   return ret;
+};
+
+var map = function (ls, fn) {
+   var i, ret = [];
+   for (i = 0; i < ls.length; i += 1) {
+      ret.push(fn(ls[i]));
+   }
+   return ret;
+};
+
+var isStringInt = function (s) {
+   s = s.trim();
+   return parseInt(s, 10).toString(10) === s;
+};
+
+var isVariable = function (s) {
+   return s >= 'A' && s <= 'Z';
+};
+
+var isSpecial = function (s) {
+   return s === '$' || s === '@' || s === '&';
+};
+
+var letterToOrd = function (s) {
+   return s.charCodeAt(0) - "A".charCodeAt(0);
+};
+
+var toAscii = function (i) {
+   return String.fromCharCode(i);
+};
+
+var replaceSpecials = function (x, cur, total) {
+   if (!isSpecial(x)) {
+      return x;
+   }
+   else if (x === '$') {
+      return cur;
+   }
+   else if (x === '@') {
+      return total;
+   }
+   else if (x === '&') {
+      return (parseInt(cur, 10) + 1).toString(10);
+   }
+   else {
+      throw 'invalid instruction';
+   }
+};
+
+var doIntruction = function (instrArray, curInstr, stack, myVars, linesExecuted) {
+   var diff = replaceSpecials(instrArray[0], curInstr, linesExecuted),
+       stor = replaceSpecials(instrArray[1], curInstr, linesExecuted),
+       addr = replaceSpecials(instrArray[2], curInstr, linesExecuted),
+       varLoc = letterToOrd(stor),
+       subRes = myVars[varLoc] - (isVariable(diff) ? myVars[letterToOrd(diff)] : parseInt(diff, 10)),
+       nextInstr;
+   myVars[varLoc] = subRes;
+   if (subRes >= 0) {
+      // move to next line if positive
+      nextInstr = curInstr + 1;
+   }
+   else {
+      // jump to addr if negative
+      if (isStringInt(addr)) {
+         nextInstr = parseInt(addr, 10);
+      }
+      else {
+         nextInstr = letterToOrd(addr);
+      }
+   }
+   if (addr === '-1') {
+      stack.push(subRes);
+   }
+   return nextInstr;
+};
+
+var runProgram = function (allInstrs, stack, myVars) {
+   var curInstr = 0, linesExecuted = 0;
+   do {
+      curInstr = doIntruction(allInstrs[curInstr], curInstr, stack, myVars, linesExecuted);
+      linesExecuted += 1;
+   } while (curInstr >= 0 && curInstr < allInstrs.length);
+};
+
+var parseProgram = function(inText) {
+   var myVars = (function (){
+         var i, ret = [];
+         for(i = 0; i < 26; i += 1) {
+            ret.push(0);
+         }
+         return ret;
+      })(),
+      instructions,
+      stack = [],
+      lines = inText.value.split(/\r|\n/),
+      code_lines = map(filter(lines, 
+         function (str) {
+            return str.length === 40 && str[0] ==='#' && str[39] ==='#';
+         }), function (str) {
+            return str.replace(/ /g, '').replace(/#/g, '');
+         });
+   if (code_lines.length < 1) {
+      throw 'No instructions.';
+   }
+   instructions = map(code_lines, function (str) {
+      var words = str.split(',');
+      if (words.length !== 3) {
+         throw "bad instruction args";
+      }
+      if (!isVariable(words[0]) && !isStringInt(words[0]) && !isSpecial(words[0])) {
+         throw "bad differential arg";
+      }
+      if (!isVariable(words[1]) && !isSpecial(words[1])) {
+         throw "bad storage arg";
+      }
+      if (!isVariable(words[2]) && !isStringInt(words[2]) && !isSpecial(words[2])) {
+         throw "bad address arg";
+      }
+      return words;
+   });
+   runProgram(instructions, stack, myVars);
+   // alert(myVars);
+   get("output").value = map(stack, toAscii).join('');
+   
+};
+
+get("go_world").onclick = function () {
+   parseProgram(get("hello_world"));
+}
+
+get("go_count").onclick = function () {
+   parseProgram(get("count_input"));
+}
+
+};
+
+</script>
+</head>
+<body>
+
+<div class="cont">
+<textarea id="hello_world">
+# -72, Z, -1                           #
+# -101, Y, -1                          #
+# -108, X, -1                          #
+# -108, W, -1                          #
+# -111, V, -1                          #
+# -32, U, -1                           #
+# -87, T, -1                           #
+# -111, S, -1                          #
+# -114, R, -1                          #
+# -108, Q, -1                          #
+# -100, P, -1                          #
+# -33, O, -1                           #
+</textarea>
+<br />
+<input id="go_world" type="submit" value="Execute"></input>
+</div>
+<div class="cont">
+<textarea id="count_input">
+# 9, A, &                              #
+# B, B, &                              #
+# 10, B, &                             #
+# -1, B, &                             #
+# D, D, &                              #
+# C, C, &                              #
+# B, C, &                              #
+# -48, C, -1                           #
+# -32, D, -1                           #
+# E, E, &                              #
+# F, F, &                              #
+# B, E, &                              #
+# E, F, &                              #
+# -1, F, &                             #
+# 0, F, 3                              #
+</textarea>
+<br />
+<input id="go_count" type="submit" value="Execute"></input>
+</div>
+
+<div class="cont clear">
+   <textarea id="output"></textarea>
+</div>
+
+</body>
+</html>
