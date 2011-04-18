@@ -56,10 +56,10 @@ function WaterRow(gameSettings, settings) {
       for(var i = 0; i < myLogs.length; i++) {
          var newDiv = document.createElement("div");
          newDiv.style.position = 'absolute';
-         newDiv.style.top = '0';
+         newDiv.style.top = '2';
          newDiv.style.left = myLogs[i] + 'px';
          newDiv.style.width = settings.carWidth + 'px';
-         newDiv.style.height = myHeight + 'px';
+         newDiv.style.height = (myHeight - 4) + 'px';
          newDiv.style.backgroundColor = settings.carColor;
          rowDiv.appendChild(newDiv);
          myLogDivs.push(newDiv);
