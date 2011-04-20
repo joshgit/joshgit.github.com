@@ -28,10 +28,18 @@
 </style>
 
 <script src="frogger.js"></script>
+<script src="platformer.js"></script>
 
 <script>
 
 window.onload = function() {
+
+   new Game({
+      mainDiv: 'platformMain',
+      width: 300,
+      height: 200
+   });
+
    var board = new BoardModel({
       gameSettings: {
          getWidth: function() { return 150; }, 
@@ -262,7 +270,12 @@ window.onload = function() {
 </head>
 <body>
 
-Guess which game this is. Click to focus. r to reset.
+Guess which game this is. Use arrow keys.
+<div id="platformMain"></div>
+
+<hr />
+
+Guess which game this is. Click to focus. Use arrow keys, r to reset.
 <div id="main"></div>
 
 <hr />
