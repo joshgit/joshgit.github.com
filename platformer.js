@@ -323,8 +323,12 @@ function Game(settings) {
       };
    })(back), 50);
 
-   window.addEventListener('keyup', (function(back, guy) {
+   var callback = (function(back, guy) {
       return function(e) {
+      
+         if (!e && window.event) {
+            e = window.event;
+         }
 
          if (e.keyCode == 82) { // r pressed
             // bm.resetGame();
@@ -350,9 +354,22 @@ function Game(settings) {
             guy.stopRight();
          }
       };
-   })(back, g), true);
-   window.addEventListener('keydown', (function(back, guy) {
+   })(back, g);
+   if (window.addEventListener){
+      window.addEventListener('keyup', callback, true);
+   } else if (window.attachEvent){
+      // mainDiv.attachEvent('keyup', callback);
+      mainDiv.onkeyup = callback;
+   } else {
+      alert("can't attach keyup listener");
+   }
+
+   callback = (function(back, guy) {
       return function(e) {
+
+         if (!e && window.event) {
+            e = window.event;
+         }
 
          if (e.keyCode == 38) {
             guy.jump();
@@ -367,6 +384,14 @@ function Game(settings) {
             guy.moveRight();
          }
       };
-   })(back, g), true);
+   })(back, g);
+   if (window.addEventListener){
+      window.addEventListener('keydown', callback, true);
+   } else if (window.attachEvent){
+      // mainDiv.attachEvent('keydown', callback);
+      mainDiv.onkeydown = callback;
+   } else {
+      alert("can't attach keydown listener");
+   }
 }
 

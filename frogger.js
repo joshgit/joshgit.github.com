@@ -409,8 +409,13 @@ function BoardModel(settings) {
       }
    };
    
-   window.addEventListener('keyup', (function(bm, f) {
+   var callback = (function(bm, f) {
       return function(e) {
+
+         if (!e && window.event) {
+            e = window.event;
+         }
+
          if (e.keyCode == 82) { // r pressed
             bm.resetGame();
             return;
@@ -431,7 +436,15 @@ function BoardModel(settings) {
             f.moveRight();
          }
       };
-   })(this, myFrog), true);
+   })(this, myFrog);
+   if (window.addEventListener){
+      window.addEventListener('keyup', callback, true);
+   } else if (window.attachEvent){
+      // .attachEvent('keyup', callback);
+      document.getElementById('main').onkeyup = callback;
+   } else {
+      alert("can't attach keyup listener");
+   }
 }
 
 var DEBUG = false; //true;
