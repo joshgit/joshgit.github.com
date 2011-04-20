@@ -4,43 +4,71 @@ var DEBUG = false,
 
 function get(s) { return document.getElementById(s); }
 
-function Coin(x, y, w, h) {
-   var _div = document.createElement("div");
-   _div.style.position = 'absolute';
-   _div.style.top = y + 'px';
-   _div.style.left = x + 'px';
-   _div.style.width = w + 'px';
-   _div.style.height = h + 'px';
-   _div.style.backgroundColor = '#ba0';
-   
-   this._top = y;
-   this._bottom = y + h;
-   this._left = x;
-   this._right = x + w;
+function Sprite() {
+   this.setProps = function(props) {
+      var ax = props.accel.x;
+      var ay = props.accel.y;
+      var vx = props.vel.x;
+      var vy = props.vel.y;
+      var x = props.pos.x;
+      var y = props.pos.y;
+      this.setX = function(_x) {
+         x = _x;
+         _div.style.left = x + 'px';
+      };
+      this.shiftX = function(_dx) {
+         x += _dx;
+         _div.style.left = x + 'px';
+      };
+      this.getLeft = function() { return x; };
+      this.getRight = function() { return x + w; };
+      this.getMiddleX = function() { return x + w/2; };
 
-   this.getDiv = function() {
-      return _div;
+      this.setY = function(_y) {
+         y = _y;
+         _div.style.top = y + 'px';
+      };
+      this.shiftY = function(_dy) {
+         y += _dy;
+         _div.style.top = y + 'px';
+      };
+      this.getTop = function() { return y; };
+      this.getBottom = function() { return y + h; };
+
+      this.setXVel = function(_vx) { vx = _vx; };
+      this.setYVel = function(_vy) { vy = _vy; };
+      this.getXVel = function() { return vx; };
+      this.getYVel = function() { return vy; };
+      this.trimToMaxVel = function(max) {
+         // if (vy < -max) vy = -max;
+         if (vy > max) vy = max;
+         if (vx < -max) vx = -max;
+         else if (vx > max) vx = max;
+      };
+      this.shiftXVel = function(_dvx) { vx += _dvx; };
+      this.shiftYVel = function(_dvy) { vy += _dvy; };
+      this.setAccelX = function(_ax) { ax = _ax; };
+      this.setAccelY = function(_ay) { ay = _ay; };
+      var w = props.width;
+      var h = props.height;
+      this.getWidth = function() { return w; };
+      this.getHeight = function() { return h; };
+
+      var _div = document.createElement("div");
+      _div.style.position = 'absolute';
+      _div.style.top = y + 'px';
+      _div.style.left = x + 'px';
+      _div.style.width = w + 'px';
+      _div.style.height = h + 'px';
+      _div.style.backgroundColor = props.color;
+
+      this.getDiv = function() {
+         return _div;
+      };
    };
 }
 
-function Block(x, y, w, h, c, background, numCoins) {
-   var _div = document.createElement("div");
-   _div.style.position = 'absolute';
-   _div.style.top = y + 'px';
-   _div.style.left = x + 'px';
-   _div.style.width = w + 'px';
-   _div.style.height = h + 'px';
-   _div.style.backgroundColor = c;
-   _div.style.border = '1px solid #999';
-
-   this.getDiv = function() {
-      return _div;
-   };
-   this._left = x;
-   this._right = x + w;
-   this._top = y;
-   this._bottom = y + h;
-
+function Block(background, numCoins) {
    var bumpShift = 4, BUMP_MS = 125;
    
    this.hit = function(guy, dirFrom) {
@@ -49,39 +77,40 @@ function Block(x, y, w, h, c, background, numCoins) {
          if (numCoins > 0) {
             numCoins -= 1;
             if (numCoins == 0) {
-               _div.style.backgroundColor = '#ca0';
+               this.getDiv().style.backgroundColor = '#ca0';
             }
-            _div.style.top = (y - bumpShift) + 'px';
-            background.addCoin(new Coin(x + w/2, y - w, w/3, h * 3 / 4));
-            window.setTimeout((function(_div){
+            // _div.style.top = (y - bumpShift) + 'px';
+            var origTop = this.getTop();
+            this.shiftY(-bumpShift);
+            var c = new Sprite();
+            c.setProps({
+               accel: {x: 0, y: 0},
+               vel: {x: 0, y: 0},
+               pos: {x: this.getMiddleX() - 1, y: origTop - this.getHeight()},
+               width: this.getWidth() / 3,
+               height: this.getHeight() * 3 / 4,
+               color: '#ba0'
+            });
+            background.addCoin(c);
+            window.setTimeout((function(me){
                return function(){
-                  _div.style.top = y + 'px';
+                  // _div.style.top = y + 'px';
+                  me.shiftY(bumpShift);
                };
-            })(_div), BUMP_MS);
+            })(this), BUMP_MS);
          }
       }
    };
 }
+Block.prototype = new Sprite();
 
-function Guy(x, y, dx, dy, w, h, c) {
-   var _div = document.createElement("div");
-   _div.style.position = 'absolute';
-   _div.style.top = y;
-   _div.style.left = x;
-   _div.style.width = w;
-   _div.style.height = h;
-   _div.style.backgroundColor = c;
-   
-   this.getLeft = function() { return x; };
-   this.getRight = function() { return x + w; };
-   this.getTop = function() { return y; };
-   this.getBottom = function() { return y + h; };
-   
+function Guy() {
+
    var alive = true;
    this.getAlive = function() { return alive; };
    
    this.kill = function() {
-      _div.style.backgroundColor = '#999';
+      this.getDiv().style.backgroundColor = '#999';
       alive = false;
    };
    
@@ -89,36 +118,31 @@ function Guy(x, y, dx, dy, w, h, c) {
       if (!alive || !playerGuy.getAlive()) {
          return
       }
-      if (x > playerGuy.getRight() || x + w < playerGuy.getLeft() ||
-         y > playerGuy.getBottom() || y + h < playerGuy.getTop()) {
+      if (this.getLeft() > playerGuy.getRight() || this.getRight() < playerGuy.getLeft() ||
+         this.getTop() > playerGuy.getBottom() || this.getBottom() < playerGuy.getTop()) {
          return;
       }
-      if (y + h <= playerGuy.getBottom()) {
+      if (this.getBottom() <= playerGuy.getBottom()) {
          playerGuy.kill();
-         dy = JUMP_ACCEL/2;
+         this.setYVel(JUMP_ACCEL / 2);
       }
       else {
          this.kill();
-         dy = JUMP_ACCEL/2;
+         this.setYVel(JUMP_ACCEL / 2);
          playerGuy.forceJump();
       }
    };
 
-   this.getDiv = function() {
-      return _div;
-   };
-   
    this.willHitBlock = function(block) {
-      if (block._left > x + w ||
-          block._right < x) {
+      if (block.getLeft() > this.getRight() ||
+          block.getRight() < this.getLeft()) {
          return false;
       }
-      return Math.abs(block._top - (y + h)) < 2 || Math.abs(block._bottom - y) < 2;
+      return Math.abs(block.getTop() - this.getBottom()) < 2 || Math.abs(block.getBottom() - this.getTop()) < 2;
    };
    
    this.overlaps = function(coin) {
-      var myLeft = x, myRight = x + w, myTop = y, myBottom = y + h;
-      var notOverlapping = coin._left > myRight || coin._right < myLeft || coin._top > myBottom || coin._bottom < myTop;
+      var notOverlapping = coin.getLeft() > this.getRight() || coin.getRight() < this.getLeft() || coin.getTop() > this.getBottom() || coin.getBottom() < this.getTop();
       return !notOverlapping;
    };
 
@@ -130,15 +154,20 @@ function Guy(x, y, dx, dy, w, h, c) {
    
    this.move = function(block) {
       if (!alive) {
-         dx = 0;
-         dy += GRAVITY_ACCEL;
-         y += dy;
-         _div.style.top = Math.round(y) + 'px';
-         _div.style.left = Math.round(x) + 'px';
+         // dx = 0;
+         // dy += GRAVITY_ACCEL;
+         // y += dy;
+         this.setXVel(0);
+         this.shiftYVel(GRAVITY_ACCEL);
+         this.shiftY(this.getYVel());
+         // _div.style.top = Math.round(y) + 'px';
+         // _div.style.left = Math.round(x) + 'px';
          return;
       }
    
       // make sure we dont accelerate too much.
+      this.trimToMaxVel(4.0);
+      /*
       if (dy > 4.0) {
          dy = 4.0;
       }
@@ -148,19 +177,23 @@ function Guy(x, y, dx, dy, w, h, c) {
       else if (dx < -4.0) {
          dx = -4.0;
       }
+      */
       
       // accel downwards by 1px/frame
-      dy += GRAVITY_ACCEL;
+      // dy += GRAVITY_ACCEL;
+      this.shiftYVel(GRAVITY_ACCEL);
       
       // only stick to block is accel is not negative
       justHitBlock = false;
       if (block) {
-         if (dy >= 0.0 && Math.abs(block._top - (y + h)) < 2) { // going down
-            y = block._top - h; // set guy to be walking exactly on top of block
-            dy = 0.0;
+         if (this.getYVel() >= 0.0 && Math.abs(block.getTop() - this.getBottom()) < 2) { // going down
+            // y = block.getTop() - h; // set guy to be walking exactly on top of block
+            // dy = 0.0;
+            this.setY(block.getTop() - this.getHeight());
+            this.setYVel(0.0);
             justHitBlock = true;
          }
-         else if (dy <= 0.0 && Math.abs(block._bottom - y) < 2) { // going up
+         else if (this.getYVel() <= 0.0 && Math.abs(block.getBottom() - this.getTop()) < 2) { // going up
          
             // try reversing y accel in block hit method instead of zeroing it here
             // dy = 0.0;
@@ -168,44 +201,54 @@ function Guy(x, y, dx, dy, w, h, c) {
             block.hit(this, DOWN);
          }
       }
-      y += dy;
+      // y += dy;
+      this.shiftY(this.getYVel());
 
       if (dirPressed == LEFT) {
-         dx -= X_ACCEL;
+         this.shiftXVel(-X_ACCEL);
+         // dx -= X_ACCEL;
       }
       else if (dirPressed == RIGHT) {
-         dx += X_ACCEL;
+         this.shiftXVel(X_ACCEL);
+         // dx += X_ACCEL;
       }
       else {
          // slow horiz accel
-         if (dx <= -X_ACCEL) {
-            dx += X_ACCEL;
+         if (this.getXVel() <= -X_ACCEL) {
+            this.shiftXVel(X_ACCEL);
+            // dx += X_ACCEL;
          }
-         else if (dx >= X_ACCEL) {
-            dx -= X_ACCEL;
+         else if (this.getXVel() >= X_ACCEL) {
+            this.shiftXVel(-X_ACCEL);
+            // dx -= X_ACCEL;
          }
          else {
-            dx = 0.0;
+            this.setXVel(0.0);
+            // dx = 0.0;
          }
       }
       
-      x += dx;
+      // x += dx;
+      this.shiftX(this.getXVel());
 
-      _div.style.top = Math.round(y) + 'px';
-      _div.style.left = Math.round(x) + 'px';
+      // _div.style.top = Math.round(y) + 'px';
+      // _div.style.left = Math.round(x) + 'px';
    };
    
    this.flipYAccel = function() {
-      dy = -dy;
+      // dy = -dy;
+      this.setYVel(-this.getYVel());
    };
    
    this.jump = function() {
-      if (justHitBlock && Math.abs(dy) < 0.1) {
-         dy = JUMP_ACCEL;
+      if (justHitBlock && Math.abs(this.getYVel()) < 0.1) {
+         // dy = JUMP_ACCEL;
+         this.setYVel(JUMP_ACCEL);
       }
    };
    this.forceJump = function() {
-      dy = JUMP_ACCEL;
+      // dy = JUMP_ACCEL;
+         this.setYVel(JUMP_ACCEL);
    };
    this.duck = function() {
       // do nothing now
@@ -223,6 +266,7 @@ function Guy(x, y, dx, dy, w, h, c) {
       dirPressed = NONE;
    };
 }
+Guy.prototype = new Sprite();
 
 function BackgroundPanel(w, h) {
    var _div = document.createElement("div");
@@ -303,15 +347,51 @@ function BackgroundPanel(w, h) {
 function Game(settings) {
    var back = new BackgroundPanel(settings.width, settings.height);
    for (var k = 0; k < 8; k++) {
-      var b = new Block(100 + k * 10, 100, 10, 10, '#ec0', back, 0);
+      // var b = new Block(100 + k * 10, 100, 10, 10, '#ec0', back, 0);
+      var b = new Block(back, 0);
+      b.setProps({
+            accel: {x: 0, y: 0},
+            vel: {x: 0, y: 0},
+            pos: {x: 100 + k * 10, y: 100},
+            width: 10,
+            height: 10,
+            color: '#ec0'
+         });
       back.addBlock(b);
    }
-   b = new Block(120, 70, 10, 10, '#ec0', back, 1);
+   // b = new Block(120, 70, 10, 10, '#ec0', back, 1);
+   b = new Block(back, 1);
+   b.setProps({
+         accel: {x: 0, y: 0},
+         vel: {x: 0, y: 0},
+         pos: {x: 120, y: 70},
+         width: 10,
+         height: 10,
+         color: '#ec0'
+      });
    back.addBlock(b);
 
-   var g = new Guy(100, 90, 0, 0, 10, 10, '#ca0');
+   // var g = new Guy(100, 90, 0, 0, 10, 10, '#ca0');
+   var g = new Guy();
+   g.setProps({
+         accel: {x: 0, y: 0},
+         vel: {x: 0, y: 0},
+         pos: {x: 100, y: 90},
+         width: 10,
+         height: 10,
+         color: '#ca0'
+      });
    back.addGuy(g);
-   var e = new Guy(130, 90, -10, 0, 10, 10, '#0ac');
+   // var e = new Guy(130, 90, -10, 0, 10, 10, '#0ac');
+   var e = new Guy();
+   e.setProps({
+         accel: {x: 0, y: 0},
+         vel: {x: -10, y: 0},
+         pos: {x: 130, y: 90},
+         width: 10,
+         height: 10,
+         color: '#0ac'
+      });
    back.addEnemy(e);
 
    var mainDiv = get(settings.mainDiv);
