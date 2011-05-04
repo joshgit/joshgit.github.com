@@ -12,6 +12,9 @@ function Sprite() {
       var vy = props.vel.y;
       var x = props.pos.x;
       var y = props.pos.y;
+      this.getPos = function() {
+         return {x: x, y: y};
+      };
       this.setX = function(_x) {
          x = _x;
          _div.style.left = x + 'px';
@@ -36,10 +39,36 @@ function Sprite() {
       this.getBottom = function() { return y + h; };
 
       this.setXVel = function(_vx) { vx = _vx; };
+      this.zeroXVel = function() { vx = 0; };
       this.setYVel = function(_vy) { vy = _vy; };
-      this.getXVel = function() { return vx; };
-      this.getYVel = function() { return vy; };
+      
+      // this.getXVel = function() { return vx; };
+      this.slowOrZeroXBy = function(delta) {
+         if (vx <= -delta) {
+            vx += delta;
+         }
+         else if (vx >= delta) {
+            vx -= delta;
+         }
+         else {
+            vx = 0;
+         }
+      };
+      
+      this.moveByVel = function() {
+         x += vx;
+         y += vy;
+         _div.style.top = y + 'px';
+         _div.style.left = x + 'px';
+      };
+      
+      // this.getYVel = function() { return vy; };
+      this.velNotDown = function() { return vy <= 0.0; };
+      this.velNotUp = function() { return vy >= 0.0; };
+      this.noYVel = function() { return Math.abs(vy) < 0.1; };
+      this.invertYVel = function() { vy = -vy; };
       this.trimToMaxVel = function(max) {
+         // don't limit up velocity, gavity will always decrease it.
          // if (vy < -max) vy = -max;
          if (vy > max) vy = max;
          if (vx < -max) vx = -max;
@@ -68,7 +97,9 @@ function Sprite() {
    };
 }
 
-function Block(background, numCoins) {
+function Block(background, numCoins, props) {
+   this.setProps(props);
+
    var bumpShift = 4, BUMP_MS = 125;
    
    this.hit = function(guy, dirFrom) {
@@ -79,7 +110,6 @@ function Block(background, numCoins) {
             if (numCoins == 0) {
                this.getDiv().style.backgroundColor = '#ca0';
             }
-            // _div.style.top = (y - bumpShift) + 'px';
             var origTop = this.getTop();
             this.shiftY(-bumpShift);
             var c = new Sprite();
@@ -94,7 +124,6 @@ function Block(background, numCoins) {
             background.addCoin(c);
             window.setTimeout((function(me){
                return function(){
-                  // _div.style.top = y + 'px';
                   me.shiftY(bumpShift);
                };
             })(this), BUMP_MS);
@@ -104,7 +133,32 @@ function Block(background, numCoins) {
 }
 Block.prototype = new Sprite();
 
-function Guy() {
+function ProducingBlock(back, numCoins, props, msToMake) {
+   var b = new Block(back, numCoins, props);
+   b.getDiv().style.zIndex = 1;
+
+   setInterval((function(back, block) {
+      return function() {
+         var e = new Guy({
+               accel: {x: 0, y: 0},
+               vel: {x: 0, y: 0},
+               pos: block.getPos(),
+               width: 10,
+               height: 10,
+               color: '#0ac'
+         },
+         function() {
+            this.setXVel(-2);
+         });
+         back.addEnemy(e);
+      }
+   })(back, b), msToMake);
+
+   return b;
+}
+
+function Guy(props, moveFunc) {
+   this.setProps(props);
 
    var alive = true;
    this.getAlive = function() { return alive; };
@@ -154,100 +208,77 @@ function Guy() {
    
    this.move = function(block) {
       if (!alive) {
-         // dx = 0;
-         // dy += GRAVITY_ACCEL;
-         // y += dy;
-         this.setXVel(0);
+         this.zeroXVel();
          this.shiftYVel(GRAVITY_ACCEL);
-         this.shiftY(this.getYVel());
-         // _div.style.top = Math.round(y) + 'px';
-         // _div.style.left = Math.round(x) + 'px';
+         // this.shiftY(this.getYVel());
+         this.moveByVel();
          return;
       }
-   
+
+      if (moveFunc) {
+         moveFunc.call(this);
+      }
+
       // make sure we dont accelerate too much.
       this.trimToMaxVel(4.0);
-      /*
-      if (dy > 4.0) {
-         dy = 4.0;
-      }
-      if (dx > 4.0) {
-         dx = 4.0;
-      }
-      else if (dx < -4.0) {
-         dx = -4.0;
-      }
-      */
       
       // accel downwards by 1px/frame
-      // dy += GRAVITY_ACCEL;
       this.shiftYVel(GRAVITY_ACCEL);
       
       // only stick to block is accel is not negative
       justHitBlock = false;
       if (block) {
-         if (this.getYVel() >= 0.0 && Math.abs(block.getTop() - this.getBottom()) < 2) { // going down
-            // y = block.getTop() - h; // set guy to be walking exactly on top of block
-            // dy = 0.0;
+         if (this.velNotUp() && Math.abs(block.getTop() - this.getBottom()) < 2) { // going down
+            // set guy to be walking exactly on top of block
             this.setY(block.getTop() - this.getHeight());
             this.setYVel(0.0);
             justHitBlock = true;
          }
-         else if (this.getYVel() <= 0.0 && Math.abs(block.getBottom() - this.getTop()) < 2) { // going up
+         else if (this.velNotDown() && Math.abs(block.getBottom() - this.getTop()) < 2) { // going up
          
-            // try reversing y accel in block hit method instead of zeroing it here
-            // dy = 0.0;
-            
+            // reverse y accel in block hit method instead of zeroing it here
             block.hit(this, DOWN);
          }
       }
-      // y += dy;
-      this.shiftY(this.getYVel());
 
       if (dirPressed == LEFT) {
          this.shiftXVel(-X_ACCEL);
-         // dx -= X_ACCEL;
       }
       else if (dirPressed == RIGHT) {
          this.shiftXVel(X_ACCEL);
-         // dx += X_ACCEL;
       }
       else {
          // slow horiz accel
+         this.slowOrZeroXBy(X_ACCEL);
+         /*
          if (this.getXVel() <= -X_ACCEL) {
             this.shiftXVel(X_ACCEL);
-            // dx += X_ACCEL;
          }
          else if (this.getXVel() >= X_ACCEL) {
             this.shiftXVel(-X_ACCEL);
-            // dx -= X_ACCEL;
          }
          else {
-            this.setXVel(0.0);
-            // dx = 0.0;
+            this.zeroXVel();
          }
+         */
       }
       
-      // x += dx;
-      this.shiftX(this.getXVel());
-
-      // _div.style.top = Math.round(y) + 'px';
-      // _div.style.left = Math.round(x) + 'px';
+      // this.shiftY(this.getYVel());
+      // this.shiftX(this.getXVel());
+      this.moveByVel();
    };
    
    this.flipYAccel = function() {
-      // dy = -dy;
-      this.setYVel(-this.getYVel());
+      // this.setYVel(-this.getYVel());
+      this.invertYVel();
    };
    
    this.jump = function() {
-      if (justHitBlock && Math.abs(this.getYVel()) < 0.1) {
-         // dy = JUMP_ACCEL;
+      if (justHitBlock && this.noYVel()) {
          this.setYVel(JUMP_ACCEL);
       }
    };
    this.forceJump = function() {
-      // dy = JUMP_ACCEL;
          this.setYVel(JUMP_ACCEL);
    };
    this.duck = function() {
@@ -347,9 +378,7 @@ function BackgroundPanel(w, h) {
 function Game(settings) {
    var back = new BackgroundPanel(settings.width, settings.height);
    for (var k = 0; k < 8; k++) {
-      // var b = new Block(100 + k * 10, 100, 10, 10, '#ec0', back, 0);
-      var b = new Block(back, 0);
-      b.setProps({
+      var b = new Block(back, 0, {
             accel: {x: 0, y: 0},
             vel: {x: 0, y: 0},
             pos: {x: 100 + k * 10, y: 100},
@@ -359,9 +388,7 @@ function Game(settings) {
          });
       back.addBlock(b);
    }
-   // b = new Block(120, 70, 10, 10, '#ec0', back, 1);
-   b = new Block(back, 1);
-   b.setProps({
+   b = new Block(back, 1, {
          accel: {x: 0, y: 0},
          vel: {x: 0, y: 0},
          pos: {x: 120, y: 70},
@@ -370,10 +397,17 @@ function Game(settings) {
          color: '#ec0'
       });
    back.addBlock(b);
+   b = ProducingBlock(back, 0, {
+         accel: {x: 0, y: 0},
+         vel: {x: 0, y: 0},
+         pos: {x: 160, y: 70},
+         width: 10,
+         height: 10,
+         color: '#ce0'
+      }, 5000);
+   back.addBlock(b);
 
-   // var g = new Guy(100, 90, 0, 0, 10, 10, '#ca0');
-   var g = new Guy();
-   g.setProps({
+   var g = new Guy({
          accel: {x: 0, y: 0},
          vel: {x: 0, y: 0},
          pos: {x: 100, y: 90},
@@ -382,9 +416,7 @@ function Game(settings) {
          color: '#ca0'
       });
    back.addGuy(g);
-   // var e = new Guy(130, 90, -10, 0, 10, 10, '#0ac');
-   var e = new Guy();
-   e.setProps({
+   var e = new Guy({
          accel: {x: 0, y: 0},
          vel: {x: -10, y: 0},
          pos: {x: 130, y: 90},
@@ -414,12 +446,6 @@ function Game(settings) {
             // bm.resetGame();
             return;
          }
-
-         /*
-         if (!bm.isPlaying()) {
-            return;
-         }
-         */
 
          if (e.keyCode == 38) {
             // guy.stopJump();
