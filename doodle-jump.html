@@ -1,0 +1,273 @@
+<html>
+<body>
+<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+<script>
+
+function JumpGame(OUTER_DIV_ID, 
+        WIN_WIDTH, WIN_HEIGHT, TOTAL_BOARD_HEIGHT, 
+        BLOCK_WIDTH, BLOCK_HEIGHT, DUDE_WIDTH, DUDE_HEIGHT) {
+
+    // derived from parameters
+    var HALF_BLOCK_WIDTH = BLOCK_WIDTH / 2;
+    var HALF_WIN_WIDTH = WIN_WIDTH / 2;
+    var INNER_DIV_ID = OUTER_DIV_ID + '_inner';
+    
+    // not passed in
+    var SAD_FACE_IMG_URL = 'http://2.bp.blogspot.com/_xI_VEnvwTzw/SKEitYFtr4I/AAAAAAAAA7E/WzF3gz7MqsU/s400/080807a.jpg';
+    var HEIGHT_TIL_SCROLL = 150;
+    var SECOND_HEIGHT_TIL_SCROLL = 225;
+    var THIRD_HEIGHT_TIL_SCROLL = 260;
+    var MAX_ACCEL = 8;
+    var PUSH_ACCEL = 6;
+    var JUMP_ACCEL = 16;
+    var ROW_HEIGHT = 12;
+    var DRAW_FREQ = 50
+
+    var outerDiv = $('#' + OUTER_DIV_ID);
+    var gameDiv = $('#' + INNER_DIV_ID);
+    var blocks = [];
+
+    function prepend_divs_to_body() {
+        if (!gameDiv.length) {
+            gameDiv = $('<div id="' + INNER_DIV_ID + '" style="position: absolute; width: ' + WIN_WIDTH + 
+                    'px; height: ' + TOTAL_BOARD_HEIGHT + 'px; background-color: #aaf"></div>');
+        }
+        outerDiv = $('<div id="' + OUTER_DIV_ID + '" style="overflow: hidden; position: absolute; width: ' + WIN_WIDTH + 
+                    'px; height: ' + WIN_HEIGHT + 'px; border: 1px solid #f00;"></div>');
+        outerDiv.append(gameDiv);
+        $('body').prepend(outerDiv);
+    }
+
+    function initialize_blocks() {
+        var b = makeBlock(0, 0);
+        blocks.push(b);
+        gameDiv.append(b);
+
+        var curY = 0;
+        while (curY < TOTAL_BOARD_HEIGHT) {
+            var steps = Math.floor(Math.random() * 9);
+            curY += steps * ROW_HEIGHT;
+            var b = makeBlock(
+                Math.floor(Math.random() * (WIN_WIDTH - BLOCK_WIDTH)) - HALF_WIN_WIDTH + BLOCK_WIDTH / 2, 
+                curY);
+            blocks.push(b);
+            gameDiv.append(b);
+        }
+    }
+
+    function adjustForBlocks(dude) {
+        var dude_left = dude.x - DUDE_WIDTH / 2;
+        var dude_right = dude.x + DUDE_WIDTH / 2;
+        for (var i = lowest_block_index; i < blocks.length; i++) {
+            var this_block = blocks[i];
+            var block_top = this_block.y + BLOCK_HEIGHT;
+            if (block_top > current_bottom + WIN_HEIGHT) {
+                break;
+            }
+            if (dude.y > block_top - 9 && dude.y < block_top
+                && dude_left < this_block.x + HALF_BLOCK_WIDTH
+                && dude_right > this_block.x - HALF_BLOCK_WIDTH)
+            {
+                this_block.hit();
+                dude.jump(block_top);
+                if (this_block.hp < 1) {
+                    blocks.splice(i, 1);
+                    this_block.remove();
+                }
+                break;
+            }
+        }
+    }
+
+    function setY(yPx) {
+        this.y = yPx;
+        this.css('top', (TOTAL_BOARD_HEIGHT - this.height() - yPx) + 'px');
+    }
+
+    function setX(xPx) {
+        this.x = xPx;
+        this.css('left', (WIN_WIDTH - this.width()) / 2 + xPx + 'px');
+    }
+
+    function makeBlock(x, y) {
+        var block = $('<div id="win" style="position: absolute; width: 60px; height: 12px; background-color: #afa"></div>');
+        block.hp = 2;
+        block.hit = function() {
+            this.hp -= 1;
+            if (this.hp == 1) {
+                this.css('background-color', '');
+                this.css('border', '1px solid #afa');
+            }
+        };
+        block.setY = setY;
+        block.setX = setX;
+        block.setX(x);
+        block.setY(y);
+        return block;
+    }
+
+    function makeDude() {
+        var dude = $('<div id="win" style="position: absolute; width: 24px; height: 24px; background-color: #faa"></div>');
+        dude.x = 0;
+        dude.y = 0;
+        dude.accel = 0;
+        dude.jump_accel = 0;
+
+        dude.setY = setY;
+        dude.setX = setX;
+
+        dude.moveDown = function() {
+            if (this.y > 0) {
+                this.y -= 1;
+                this.setY(this.y);
+            }
+        };
+
+        dude.move = function() {
+            this.moveDown();
+
+            if (this.jump_accel > -6) {
+                this.jump_accel -= 1;
+            }
+
+            if (this.jump_accel <= 0) {
+                adjustForBlocks(this);
+            }
+            if (this.y > current_bottom && this.x > -HALF_WIN_WIDTH && this.x < HALF_WIN_WIDTH) {
+                this.y += this.jump_accel;
+                if (this.y > current_bottom + HEIGHT_TIL_SCROLL && this.jump_accel > 0) {
+                    current_bottom += this.jump_accel / 2;
+                    if (this.y > current_bottom + SECOND_HEIGHT_TIL_SCROLL) {
+                        current_bottom += this.jump_accel / 2;
+                        if (this.y > current_bottom + THIRD_HEIGHT_TIL_SCROLL) {
+                            current_bottom += this.jump_accel / 2;
+                        }
+                    }
+                    outerDiv.scrollTop(TOTAL_BOARD_HEIGHT - current_bottom - WIN_HEIGHT);
+                    // moveAllBlocks(-this.jump_accel);
+                }
+                this.setY(this.y);
+            }
+            else { // game over
+                game_over = true;
+                gameDiv.remove();
+                // outerDiv.scrollTop(0);
+                var sad_img = $('<img src="' + SAD_FACE_IMG_URL + '" style="position: absolute; z-index: 5;" />');
+                sad_img.click(function() {
+                    sad_img.remove();
+                    new JumpGame(OUTER_DIV_ID, WIN_WIDTH, WIN_HEIGHT, 
+                            TOTAL_BOARD_HEIGHT, 
+                            BLOCK_WIDTH, BLOCK_HEIGHT, 
+                            DUDE_WIDTH, DUDE_HEIGHT);
+                });
+                outerDiv.prepend(sad_img);
+                return;
+            }
+            this.setX(this.x + this.accel);
+            if (this.accel < 0) {
+                this.accel += 1;
+            }
+            else if (this.accel > 0) {
+                this.accel -= 1;
+            }
+        };
+
+        dude.jump = function(y) {
+            this.setY(y);
+            this.jump_accel = JUMP_ACCEL;
+        };
+
+        dude.pushLeft = function() {
+            if (this.accel > -MAX_ACCEL) {
+                this.accel -= PUSH_ACCEL;
+            }
+        };
+
+        dude.pushRight = function() {
+            if (this.accel < MAX_ACCEL) {
+                this.accel += PUSH_ACCEL;
+            }
+        };
+
+        return dude;
+    }
+
+    var callback = function(e) {
+        if (!e && window.event) {
+            e = window.event;
+        }
+
+        if (e.keyCode == 37) {
+            dude.pushLeft();
+        }
+        else if (e.keyCode == 39) {
+            dude.pushRight();
+        }
+    };
+    function timefunc() {
+        dude.move();
+        if (!game_over) {
+            window.setTimeout(timefunc, DRAW_FREQ);
+        }
+    }
+
+    this.timefunc = function() {
+        dude.move();
+        return !game_over;
+    }
+
+    if (window.addEventListener){
+        window.addEventListener('keydown', callback, true);
+    } else if (window.attachEvent){
+        // mainDiv.attachEvent('keydown', callback);
+        outerDiv.onkeydown = callback;
+    } else {
+        alert("can't attach keydown listener");
+    }
+
+    prepend_divs_to_body();
+    initialize_blocks();
+    outerDiv.scrollTop(TOTAL_BOARD_HEIGHT);
+
+    var last_block_y = 0;
+    var current_bottom = 0;
+    var lowest_block_index = 0;
+    var game_over;
+
+    var dude = makeDude();
+    dude.setY(ROW_HEIGHT * 4);
+    dude.setX(-20);
+    gameDiv.append(dude);
+
+    timefunc();
+}
+
+var game = new JumpGame('win', 300, 300, 20000, 60, 12, 24, 24);
+/*
+function go() {
+    if (game.timefunc()) {
+        window.setTimeout(go, game.DRAW_FREQ);
+    }
+}
+go();
+*/
+
+/*
+function moveAllBlocks(dy) {
+
+    for (var i = 0, len = blocks.length; i < len; i++) {
+        var b = blocks[i];
+        if (b.y < -BLOCK_HEIGHT) {
+            b.setX(Math.floor(Math.random() * (WIN_WIDTH - BLOCK_WIDTH)) - HALF_WIN_WIDTH + HALF_BLOCK_WIDTH);
+            b.setY(Math.floor(win.height() - 5 + Math.floor(Math.random() * 10)));
+        }
+        else {
+            b.setY(blocks[i].y + dy);
+        }
+    }
+}
+*/
+
+</script>
+</body>
+</html>
